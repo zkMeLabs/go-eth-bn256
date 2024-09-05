@@ -175,6 +175,47 @@ func (e *G1) Unmarshal(m []byte) ([]byte, error) {
 	return m[2*numBytes:], nil
 }
 
+func (e *G1) UnmarshalAgg(m []byte) ([]byte, error) {
+	// Each value is a 256-bit number.
+	const numBytes = 256 / 8
+
+	if len(m) < 2*numBytes {
+		return nil, errors.New("bn256: not enough data")
+	}
+
+	if e.p == nil {
+		e.p = &curvePoint{}
+	} else {
+		e.p.x, e.p.y = gfP{0}, gfP{0}
+	}
+
+	if err := e.p.x.Unmarshal(m); err != nil {
+		return nil, err
+	}
+	if err := e.p.y.Unmarshal(m[numBytes:]); err != nil {
+		return nil, err
+	}
+	montEncode(&e.p.x, &e.p.x)
+	montEncode(&e.p.y, &e.p.y)
+
+	zero := gfP{0}
+	if e.p.x == zero && e.p.y == zero {
+		// This is the point at infinity.
+		e.p.y = *newGFp(1)
+		e.p.z = gfP{0}
+		e.p.t = gfP{0}
+	} else {
+		e.p.z = *newGFp(1)
+		e.p.t = *newGFp(1)
+
+		// if !e.p.IsOnCurve() {
+		// 	return nil, errors.New("bn256: malformed point")
+		// }
+	}
+
+	return m[2*numBytes:], nil
+}
+
 // G2 is an abstract cyclic group. The zero value is suitable for use as the
 // output of an operation, but cannot be used as an input.
 type G2 struct {
